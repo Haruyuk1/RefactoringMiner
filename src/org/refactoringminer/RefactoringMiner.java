@@ -66,6 +66,7 @@ public class RefactoringMiner {
 		public String java_change;
 	}
 
+	private static int globalCommitCount = 0;
 
 	private static void detectFromJson(String[] args) throws Exception {
 		int maxArgLength = processJSONoption(args, 2);
@@ -79,7 +80,6 @@ public class RefactoringMiner {
 		GitHistoryRefactoringMiner detector = new GitHistoryRefactoringMinerImpl(); 
 		
 		int numAllCommit = 0;
-		int commitCount = 0;
 		for (JsonRepository jsonRepo: repoArray) {
 			numAllCommit += jsonRepo.commits.size();
 		}
@@ -91,14 +91,14 @@ public class RefactoringMiner {
 				for (JsonCommit jsonCommit: jsonRepo.commits) {
 					String gitURL = repo.getConfig().getString("remote", "origin", "url");
 					detector.detectAtCommit(repo, jsonCommit.sha1, new RefactoringHandler(){
-						int commitCount = 0;
+
 						@Override
 						public void handle(String commitId, List<Refactoring> refactorings) {
-							if(commitCount > 0) {
+							if(globalCommitCount > 0) {
 								betweenCommitsJSON();
 							}
 							commitJSON(gitURL, commitId, refactorings);
-							commitCount++;
+							globalCommitCount++;
 						}
 						@Override
 						public void onFinish(int refactoringsCount, int commitsCount, int errorCommitsCount) {
@@ -112,9 +112,9 @@ public class RefactoringMiner {
 						}	
 					});
 					// 進捗表示
-					commitCount++;
+					globalCommitCount++;
 					System.out.print("\r");
-					System.out.print(String.format("commit %d/%d", commitCount, numAllCommit));
+					System.out.print(String.format("commit %d/%d", globalCommitCount, numAllCommit));
 				}
 			}
 		}
