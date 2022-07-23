@@ -98,7 +98,6 @@ public class RefactoringMiner {
 								betweenCommitsJSON();
 							}
 							commitJSON(gitURL, commitId, refactorings);
-							globalCommitCount++;
 						}
 						@Override
 						public void onFinish(int refactoringsCount, int commitsCount, int errorCommitsCount) {
