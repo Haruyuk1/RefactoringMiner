@@ -89,7 +89,7 @@ public class RefactoringMiner {
 
 		startJSON();
 		for (JsonCommit jsonCommit: commitArray) {
-			Repository repo = repoMap.get(jsonCommit.repository)
+			Repository repo = repoMap.get(jsonCommit.repository);
 			String gitURL = repo.getConfig().getString("remote", "origin", "url");
 			detector.detectAtCommit(repo, jsonCommit.sha1, new RefactoringHandler(){
 				@Override
