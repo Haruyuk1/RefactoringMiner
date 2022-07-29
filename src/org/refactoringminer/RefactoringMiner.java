@@ -8,7 +8,9 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.log4j.helpers.SyslogQuietWriter;
 import org.eclipse.jgit.lib.Repository;
@@ -54,10 +56,6 @@ public class RefactoringMiner {
 		}
 	}
 
-	private static class JsonRepository {
-		public String repository;
-		public List<JsonCommit> commits;	
-	}
 	private static class JsonCommit {
 		public String repository;
 		public String sha1;
@@ -76,46 +74,46 @@ public class RefactoringMiner {
 		String json_path = args[1];
 		GitService gitService = new GitServiceImpl();
 		ObjectMapper mapper = new ObjectMapper();
-		JsonRepository[] repoArray = mapper.readValue(new File(json_path), JsonRepository[].class);
+		JsonCommit[] commitArray = mapper.readValue(new File(json_path), JsonCommit[].class);
 		GitHistoryRefactoringMiner detector = new GitHistoryRefactoringMinerImpl(); 
 		
 		int numAllCommit = 0;
-		for (JsonRepository jsonRepo: repoArray) {
-			numAllCommit += jsonRepo.commits.size();
-		}
-		
-		startJSON();
-		System.out.print("");
-		for (JsonRepository jsonRepo: repoArray) {
-			try (Repository repo = gitService.openRepository(jsonRepo.repository)){
-				for (JsonCommit jsonCommit: jsonRepo.commits) {
-					String gitURL = repo.getConfig().getString("remote", "origin", "url");
-					detector.detectAtCommit(repo, jsonCommit.sha1, new RefactoringHandler(){
+		numAllCommit = commitArray.length;
 
-						@Override
-						public void handle(String commitId, List<Refactoring> refactorings) {
-							if(globalCommitCount > 0) {
-								betweenCommitsJSON();
-							}
-							commitJSON(gitURL, commitId, refactorings);
-						}
-						@Override
-						public void onFinish(int refactoringsCount, int commitsCount, int errorCommitsCount) {
-							System.out.println(String.format("Total count: [Commits: %d, Errors: %d, Refactorings: %d]",
-									commitsCount, errorCommitsCount, refactoringsCount));
-						}
-						@Override
-						public void handleException(String commit, Exception e) {
-							System.err.println("Error processing commit " + commit);
-							e.printStackTrace(System.err);
-						}	
-					});
-					// 進捗表示
-					globalCommitCount++;
-					System.out.print("\r");
-					System.out.print(String.format("commit %d/%d", globalCommitCount, numAllCommit));
-				}
+		Map<String, Repository> repoMap = new HashMap<>();
+		for (JsonCommit jsonCommit: commitArray) {
+			if (!repoMap.containsKey(jsonCommit.repository)) {
+				repoMap.put(jsonCommit.repository, gitService.openRepository(jsonCommit.repository));
 			}
+		}
+
+		startJSON();
+		for (JsonCommit jsonCommit: commitArray) {
+			Repository repo = repoMap.get(jsonCommit.repository)
+			String gitURL = repo.getConfig().getString("remote", "origin", "url");
+			detector.detectAtCommit(repo, jsonCommit.sha1, new RefactoringHandler(){
+				@Override
+				public void handle(String commitId, List<Refactoring> refactorings) {
+					if(globalCommitCount > 0) {
+						betweenCommitsJSON();
+					}
+					commitJSON(gitURL, commitId, refactorings);
+				}
+				@Override
+				public void onFinish(int refactoringsCount, int commitsCount, int errorCommitsCount) {
+					System.out.println(String.format("Total count: [Commits: %d, Errors: %d, Refactorings: %d]",
+							commitsCount, errorCommitsCount, refactoringsCount));
+				}
+				@Override
+				public void handleException(String commit, Exception e) {
+					System.err.println("Error processing commit " + commit);
+					e.printStackTrace(System.err);
+				}	
+			});
+			// 進捗表示
+			globalCommitCount++;
+			System.out.print("\r");
+			System.out.print(String.format("commit %d/%d", globalCommitCount, numAllCommit));
 		}
 		endJSON();
 	}
